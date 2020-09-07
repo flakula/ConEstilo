@@ -1,0 +1,8 @@
+__pycache__/**
+backups/**
+bibliografia/**
+data/**
+data.old/**
+doc/**
+testing/**
+src/__pycache__/**
