@@ -24,7 +24,8 @@ def read_json(file):
 
 # @st.cache
 def get_df():
-	df = pd.read_csv("data/df.csv")
+	try: df = pd.read_csv("data/df.csv")
+	except Exception as e: df = pd.DataFrame()
 	try: del df['Unnamed: 0']
 	except Exception as e: pass
 	try: df = df.set_index('title')
@@ -58,13 +59,18 @@ def debug(*arg, **kwargs):
 		print(key)
 	input()
 
-def threaddecorator(funcion):
-	def wrapper(*arg, **kwargs):
-		print("thread started:", funcion.__name__) # this isn't printing properly
-		res = threading.Thread(target=funcion, args=arg, kwargs=kwargs)
-		res.start()
-		return res
-	return wrapper
+# def threaddecorator(funcion):
+# 	def wrapper(*arg, **kwargs):
+# 		print("thread started:", funcion.__name__) # this isn't printing properly
+# 		res = threading.Thread(target=funcion, args=arg, kwargs=kwargs)
+# 		res.start()
+# 		return res
+# 	return wrapper
+
+# @threaddecorator
+# def wait_n_print(text):
+# 	time.sleep(1)
+# 	print(text)
 
 def chrono(func):
 	def wrapper(*arg, **kwargs):
@@ -74,10 +80,18 @@ def chrono(func):
 		# h = str(time.strftime("%Y-%m-%d %I:%M:%S", time.localtime()))
 		place = st.text("%s F: %s" % (h, func.__name__,))
 		# print("%s F: %s" % (h, func.__name__))
-		try:
-			print("%s F: %s args: %s" % (h, func.__name__, "-".join([str(key + str(arg)) for key, arg in kwargs.items()])))
-		except Exception as e:
-			pass
+
+		# try:
+		# 	s= ""
+		# 	print(**kwargs)
+		# 	print(*arg)
+		# 	for key in arg:
+		# 		s += str(key)
+		# 	print("%s F: %s args: %s" % (h, func.__name__, s))
+		# except Exception as e:
+		# 	raise e
+		# 	pass
+		# thread = wait_n_print("%s F: %s args: %s %s" % (h, func.__name__, *arg, **kwargs))
 
 		res = func(*arg, **kwargs)
 		if time.time()-t>1:
@@ -109,6 +123,7 @@ def conds(token):
 		return False
 	return True
 
+
 corpus_folder	= "data/corpus/"
 feature_folder	= "data/features/"
 freeling_folder	= "data/freeling/"
@@ -116,12 +131,23 @@ spacy_folder	= "data/spacy/"
 
 preprocess_file = 'data/opt_preprocess.json'
 features_file = 'data/opt_features.json'
-method_file = 'data/opt_method.json'
+# method_file = 'data/opt_method.json'
+
+if not os.path.exists("data/"):
+	os.makedirs("data/corpus")
+	with open(preprocess_file, 'w', encoding='utf-8') as f:
+		json.dump({"lower": True, "agrupar": False, "eliminar": False, "tag_lib": "freeling", "lemmatizacion": False, "pos": True}, f)
+	with open(features_file, 'w', encoding='utf-8') as f:
+		json.dump({"d": {"wl": ["mean"], "sl": ["mean", "std"], "pf": ["mean"]}, "n_grams": ["char", "word", "POS"], "n": [1, 2, 3], "k": 30}, f)
 
 preprocess = read_json(preprocess_file)
 features = read_json(features_file)
-method = read_json(method_file)
+# method = read_json(method_file)
+
+tokens_stream_folder = "data/tokens_stream_folder/"
+n_grams_folder = "data/n_grams/"
+cuestioned_index = "Sentido de Navidad"
 
 nlp = spacy.load('es')
 
-df = get_df()# TODO load() method, cache etc
+# df = get_df()# TODO load() method, cache etc
