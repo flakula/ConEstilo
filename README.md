@@ -7,7 +7,7 @@ author: [Jose Luis Alvarez](mailto:j.alvarez9438@gmail.com)
 ### Iniciar
 
 ```bash
-streamlit run main.py
+streamlit run ConEstilo.py
 ```
 
 ### Uso
