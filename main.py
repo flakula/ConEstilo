@@ -85,40 +85,48 @@ def preprocess_freeling(year, file):
 								"lexema":lexema, 
 								"POS":POS, 
 								"is_punct": POS.startswith("F"),
-								"frl_token":items })
+								# "frl_token":items # this is not been used and it takes a lot of space
+								})
 		sents.append({"tokens": tokens, "sentence": sentence})
 		# yield {"tokens": tokens, "sentence": sentence}
 	return sents
 
 def preprocess_spacy(year, file):
-	# jl = read_json(spacy_folder, year, file)	# this is not sentence separated.. fix that
-	text = read_file(corpus_folder, year, file)	
 	# log("preprocess_spacy")
-	doc = nlp(text)
-	sentences = []
-	for sentence in doc.sents:
-		tokens = []
-		for token in sentence:
-			word = token.text
-			
-			# log(not preprocess["eliminar"], not token.is_stop)
-			
-			if not preprocess["eliminar"] or not token.is_stop:
-				# log("entre!!")
-				if preprocess["lower"]:
-						word = word.lower()
-				if preprocess["lemmatizacion"]:
-					word = token.lemma_
-				tokens.append({
-							"word": word,
-							"lexema": token.lemma_,
-							"POS": token.pos_,
-							"spc_token": token.tag_,
-							"is_punct": token.pos_=="PUNCT"
-							})
-		sentences.append({"tokens": tokens, "sentence": str(sentence)})
-		# yield {"tokens": tokens, "sentence": sentence}
-	return sentences
+	# print("preprocess_spacy")
+	if os.path.exists(os.path.join(spacy_folder, year, file)):
+		return read_json(os.path.join(spacy_folder, year, file))
+	else:
+		text = read_file(corpus_folder, year, file)	
+		# print("nlp")
+		doc = nlp(text)
+		sentences = []
+		# print("nlp done")
+		for sentence in doc.sents:
+			# print("sentence")
+			tokens = []
+			for token in sentence:
+				word = token.text
+				if not preprocess["eliminar"] or not token.is_stop:
+					if preprocess["lower"]:
+							word = word.lower()
+					if preprocess["lemmatizacion"]:
+						word = token.lemma_
+					tokens.append({
+								"word": word,
+								"lexema": token.lemma_,
+								"POS": token.pos_,
+								# "spc_token": token.tag_, # this is not been used and it takes a lot of space
+								"is_punct": token.pos_=="PUNCT"
+								})
+			sentences.append({"tokens": tokens, "sentence": str(sentence)})
+			# yield {"tokens": tokens, "sentence": sentence}
+		# print("save sentence")
+		print(len(sentences))
+		with open(os.path.join(spacy_folder, year, file), 'w', encoding="utf-8") as f:
+			json.dump(sentences, f)
+		# print("return")
+		return sentences
 
 def _stylemas(preprocess_data):
 	tokens_stream = []
@@ -198,10 +206,8 @@ def _make_df(features, year, file):
 	return df
 
 def _plot_year_arrays(sls, wls, pfs, year):
-	# TODO THIS IS BROKEN
-	fig = plt.figure(year)
-	fig.suptitle(year, fontsize=12)
-	# fig.title(year)
+	fig = plt.figure("Gráficos de listas de "+year)
+	fig.suptitle("Gráficos de listas de "+year, fontsize=12)
 
 	# plt.title("Sentences Length\n"+ year)
 	ax1 = fig.add_subplot(311)
@@ -364,7 +370,35 @@ def plot_pca(df_saved, plot=True, plot_var=True, percent=.9, plot_cuestioned_ind
 							label=l[x]
 							)
 		else:
-			plt.scatter(res['PC1'], res['PC2'])
+			# plt.scatter(res['PC1'], res['PC2'])
+			res['year'] 	= df_saved['year']
+			l = sorted(list(set(res['year'])))
+			print(l)
+
+			if len(l)<15:
+				for x in range(len(l)):
+					mask = res[plot_by]==l[x]
+					res1 = res.loc[mask,:]
+					plt.scatter(res1['PC1'],
+								res1['PC2'], 
+								# c=[(int(l[x])-1940)/72]*len(res1.index), 
+								# c='b', 
+								# norm=matplotlib.colors.Normalize(),
+								# alpha=(x+1)/(len(l)+1),
+								label=l[x]
+								)
+			else:
+				for x in range(len(l)):
+					mask = res["year"]==l[x]
+					res1 = res.loc[mask,:]
+					plt.scatter(res1['PC1'],
+								res1['PC2'], 
+								# c=[(int(l[x])-1940)/72]*len(res1.index), 
+								# c='b', 
+								# norm=matplotlib.colors.Normalize(),
+								alpha=(x+1)/(len(l)+1),
+								label=l[x]
+								)
 
 		if plot_cuestioned_index:
 			try:
@@ -394,69 +428,6 @@ def plot_pca(df_saved, plot=True, plot_var=True, percent=.9, plot_cuestioned_ind
 		st.pyplot()
 	return res, explained_var # for you to select
 
-# @chrono
-# def plot_dendrogram_euclidean(df, year, corpus=False, groupby=False):
-# 	log_df(df, "df")
-# 	columns = filter(lambda x: x not in ["N", "V", "V1", "V2"], df.columns)
-# 	l = list(columns)
-# 	if not corpus:
-# 		mask = df["year"]==year
-# 		new_df = df.loc[mask, l]
-# 		# new_df = df.loc[mask, ["R","S","W","K",'wl_mean','sl_mean','sl_std','pf_mean','title']]
-# 	else:
-# 		if groupby:
-# 			# new_df = df.groupby('year').mean().loc[:, ["R","S","W","K",'wl_mean','sl_mean','sl_std','pf_mean','title']]
-# 			new_df = df.groupby('year').mean().loc[:, l]
-# 		else:
-# 			new_df = df.loc[:, l]
-# 	log_df(new_df, "new_df")
-# 	try: new_df = new_df.set_index('title')
-# 	except Exception as e: pass
-# 	if len(new_df)<2:
-# 		log("\t> Muy pocos archivos.")
-# 		return
-# 	# t = new_df['title']
-# 	# del new_df['title']
-# 	# del new_df['Unnamed: 0']
-# 	# log(new_df)
-# 	# Calculate the distance between each sample
-# 	Z = hierarchy.linkage(new_df, 'ward')
-# 	P = hierarchy.dendrogram(Z,  leaf_font_size=8, orientation="left", labels=new_df.index)
-# 	if not web:
-# 		plt.show()
-# 	else:
-# 		st.pyplot()
-# 	return Z, P
-
-# @chrono
-# def plot_dendrogram_delta(df, inpath):
-# 	inpath = os.path.join(os.getcwd(), inpath+"\\")
-# 	# log(inpath)
-# 	if len(glob.glob(inpath+"*.txt"))<2:
-# 		log("\t> Only one file this year... no dendrogram for you.")
-# 		return
-# 	freqmatrix = countWordfrequencies(inpath) # TODO fix this
-# 	zscorematrix = getZscore(freqmatrix)
-# 	delta_matrix = delta(zscorematrix)
-
-# 	plt.xticks(fontsize=8)
-# 	plt.yticks(fontsize=8)
-# 	linkage_object = linkage(delta_matrix, method='ward')
-# 	visualize_dend = sch.dendrogram(Z=linkage_object, labels = delta_matrix.index, orientation='left')
-
-# 	if not web:
-# 		plt.show()
-# 	else:
-# 		st.pyplot()
-# 	return delta_matrix, linkage_object, visualize_dend
-
-# @chrono
-# def full_dendrogram(df):
-# 	# try: input("Abort now if you don't know what you're doing")
-# 	# except KeyboardInterrupt as e: log("good boy!")
-# 	# return plot_dendrogram_delta(df, "data/all/")
-# 	log("plot_dendrogram_delta(df, \"data/all/\")")
-
 @chrono
 def plot_array_features(years=[str(x) for x in range(1940, 2013)], corpus=False):
 	arrays = read_json('data/arrays.json')
@@ -484,7 +455,7 @@ def plot_array_features(years=[str(x) for x in range(1940, 2013)], corpus=False)
 			gpfs += pfs # this is wrong
 
 	if corpus:
-		_plot_year_arrays(gsls, gwls, gpfs, "V. Piñera") # TODO
+		_plot_year_arrays(gsls, gwls, gpfs, "Corpus") # TODO
 
 @chrono
 def extract_features(years, tag_lib="spacy"):
@@ -525,7 +496,13 @@ def extract_features(years, tag_lib="spacy"):
 				json.dump(d[year][file]['features']['tokens_stream'], f)
 			
 			d[year][file]['df'] 		= _make_df(d[year][file]["features"], year, file)
-			d[year][file]['df']['year'] = [int(year)]
+			
+			# try:
+			# 	d[year][file]['df']['year'] = [int(year)]
+			# except Exception as e:
+			d[year][file]['df']['year'] = [year]
+				
+			
 			d[year][file]['df']['title'] = [fix_name(file)[:-4]]
 
 
@@ -612,7 +589,6 @@ def pos_tagging(freeling=False, spcy=False, years=[]):
 		# freeling se demoro poco mas de 2h
 		if freeling:
 			ffile = os.path.join(pf, file)
-			# log("analyzer.bat -f config.cfg < \"%s\" > \"%s\"" % (old_file, ffile)) 
 			if not os.path.exists(ffile):
 				print("analyzer.bat -f config.cfg < \"%s\" > \"%s\"" % (old_file, ffile))
 				os.system("analyzer.bat -f config.cfg < \"%s\" > \"%s\"" % (old_file, ffile)) 
@@ -621,48 +597,30 @@ def pos_tagging(freeling=False, spcy=False, years=[]):
 		if spcy:
 			sfile = os.path.join(p, file)
 			if not os.path.exists(sfile):
-				# log(sfile)
-				with open(old_file, encoding="utf8") as f:
-					text = f.read()
-					doc = nlp(text)
-
-				tokens = []
-				for token in doc:
-					tokens.append(
-									{
-										"text": token.text, 
-										"lemma_": token.lemma_, 
-										"pos_": token.pos_, 
-										"tag_": token.tag_, 
-										"dep_": token.dep_, 
-										"shape_": token.shape_, 
-										"is_alpha": token.is_alpha, 
-										"is_stop": token.is_stop,
-										"sentiment": token.sentiment,
-										# "vocab": token.vocab,
-										# "head": token.head
-									}
-							)
-
-				with open(sfile, 'w', encoding="utf8") as f:
-					json.dump(tokens, f)
+				preprocess_spacy(year, file)
 	file_on_process.text("")
 
 @chrono
 def dend(df, name):
 	st.write("Dendrograma de ", name)
-	place = st.text("Obteniendo los z-scores...")
-	zscorematrix = getZscore(df)
-	st.write(zscorematrix)
-	place.text("Calculando la matriz de distancias Delta...")
-	delta_matrix = delta(zscorematrix)
+	place = st.text("Init")
+	if os.path.exists("data/"+name+".csv"):
+		place.text("Cargando de disco...")
+		delta_matrix = pd.read_csv("data/"+name+".csv", index_col=0)
+	else:
+		place.text("Obteniendo los z-scores...")
+		zscorematrix = getZscore(df)
+		st.write(zscorematrix)
+		place.text("Calculando la matriz de distancias Delta...")
+		delta_matrix = delta(zscorematrix)
+		delta_matrix.to_csv("data/"+name+".csv")
 	st.write(delta_matrix)
 	place.text("Conectando los documentos segun el metodo ward...")
 	linkage_object = linkage(delta_matrix, method='ward')
 	# st.write(linkage_object)
 	place.text("Construyendo el dendrograma...")
 	x = len(delta_matrix)
-	fig = plt.figure(figsize=(8,x/5))
+	fig = plt.figure(figsize=(10,x/6))
 	visualize_dend = sch.dendrogram(Z=linkage_object, labels = delta_matrix.index, orientation='left')
 	# st.write(visualize_dend)
 	place.text("Terminado el dendrograma con éxito.")
@@ -684,121 +642,109 @@ def plot_corr_matrix(df, name):
 	plt.savefig("data/{}corr_matrix.png".format(name))
 	st.pyplot()
 
-# @chrono
-# def pca_df(df):
-# 	X_scaled = StandardScaler().fit_transform(df)
-# 	features = X_scaled.T
-# 	cov_matrix = np.cov(features)
-# 	values, vectors = np.linalg.eig(cov_matrix)
-# 	x=0
-# 	explained_variances = []
-# 	for i in range(len(values)):
-# 		explained_variances.append(values[i] / np.sum(values))
-
-# 	explained_var = pd.DataFrame()
-# 	explained_var['i'] = [i for i in range(1, len(explained_variances)+1)]
-# 	explained_var['Var acum'] = [np.sum(explained_variances[0:i]) for i in range(1, len(explained_variances)+1)]
-# 	explained_var['Var i-esima'] = [explained_variances[i-1] for i in range(1, len(explained_variances)+1)]
-# 	# log("2")
-
-# 	projected_1 = X_scaled.dot(vectors.T[0])
-# 	res = pd.DataFrame(projected_1, columns=['PC1'])
-# 	for i in range(1, len(vectors.T)):
-# 		res['PC'+str(i+1)] = X_scaled.dot(vectors.T[i])
-
-# 	return res, explained_var
-	
 @chrono
 def xtract_n_grmas(df, years):
 	# n_grams": ["char", "word", "POS"], "n": [1, 2, 3], "k": 30
 
-	k = features["k"]
-	n_grams_kind = [x for x in features['n_grams'] if "char"!=x]
+	if os.path.exists("data/top_n_gramas.csv"):
+		n_df = pd.read_csv("data/top_n_gramas.csv", index_col=0)
+		df = pd.read_csv("data/n_grams.csv", index_col=0)
+	else:
+		matrix = {}
+		n_grams = {}
+		k = features["k"]
+		n_grams_kind = [x for x in features['n_grams'] if "char"!=x]
+		total_iters = len(features["n"]) * len(n_grams_kind) * total_files
 
-	matrix = {}
-	n_grams = {}
-
-	total_iters = len(features["n"]) * len(n_grams_kind) * total_files
-	file_no = 1
-	file_on_process = st.text('Extrayendo los n-gramas más frecuentes')
-	my_bar = st.progress(0)
-	
-	for n in features["n"]:
-		for kind in n_grams_kind:
-			ts_corpus = []
-			# tokens_stream_per_year = []
-			for year in os.listdir(corpus_folder): 	
-
-				ts_year = []
-				# log(year)
-				for file in os.listdir(corpus_folder+year):
-					my_bar.progress(int(file_no/(total_iters)*100))
-					file_no+=1
-					if len(years)>0:
-						if not year in years:
-							continue
-
-					h = str(time.strftime("%Y-%m-%d %I:%M:%S", time.localtime()))
-					# file_on_process.text(" | ".join([h, str(file_no), str(n), kind, year, fix_name(file[:-4])]))
-					file_on_process.text(" | ".join([h, 'Extrayendo los n-gramas más frecuentes', str(n), kind, year]))
-
-					if fix_name(file[:-4]) not in matrix:
-						matrix[fix_name(file[:-4])] = {}
-						matrix[fix_name(file[:-4])]['year'] = year
-
-					asd = [ts[kind] for ts in read_json(os.path.join(tokens_stream_folder, year, file))]
-					matrix[fix_name(file[:-4])][kind] = asd
-					ts_year += matrix[fix_name(file[:-4])][kind] 
-
-				ts_corpus += ts_year
-			ll = nltk.FreqDist(ngrams(ts_corpus, n)).most_common(k)
-			n_grams["|".join([str(n), str(k), kind])] = ll
-	
-	file_on_process.text("Guardando n-gramas")
-	top = {}
-	for key in n_grams:
-		for x, y in n_grams[key]:
-			top["|".join(x)] = y 
-		# print([(x,y) for x, y in n_grams[key]])
-	n_df = pd.DataFrame(top, index=[0])
-	file_on_process.text("Extraídos con éxito los n-gramas más frecuentes.")
-
-	file_on_process1= st.text("Actualizando df")
-	file_no = 1
-	total_iters = len(matrix) * len(features["n"]) * len(n_grams_kind)
-	my_bar1 = st.progress(0)
-
-	for title in matrix:
-		h = str(time.strftime("%Y-%m-%d %I:%M:%S", time.localtime()))	
-		file_on_process1.text(" ".join(["Actualizando n-gramas de",title]))
-		df.loc[title, "year"]=int(matrix[title]['year'])
+		file_no = 1
+		file_on_process = st.text('Extrayendo los n-gramas más frecuentes')
+		my_bar = st.progress(0)
+		
 		for n in features["n"]:
 			for kind in n_grams_kind:
-				ln = ngrams(matrix[title][kind], n)
-				fd = nltk.FreqDist(["|".join(x) for x in list(ln)])
+				ts_corpus = []
+				# tokens_stream_per_year = []
+				for year in os.listdir(corpus_folder): 	
 
-				columns = []
-				i = "|".join([str(n), str(k), kind])
-				for n_gr, freq in n_grams[i]:
-					columns.append("|".join(n_gr))
+					ts_year = []
+					# log(year)
+					for file in os.listdir(corpus_folder+year):
+						my_bar.progress(int(file_no/(total_iters)*100))
+						file_no+=1
+						if len(years)>0:
+							if not year in years:
+								continue
 
-				for col in columns:
-					if col in fd:
-						# df.loc[title, col] = fd[col] * 100 / len(matrix[title][kind])
-						df.loc[title, col] = fd[col] * 100 / 100000
-						# df.loc[title, col] = fd[col]
-					else:
-						df.loc[title, col] = 0 
-						#This means that the n_gram 
-						#(que esta entre los top k) 
-						#no se encuentra en title
-						# log(title + ' ' + col)
-				my_bar1.progress(int(file_no/(total_iters)*100))
+						h = str(time.strftime("%Y-%m-%d %I:%M:%S", time.localtime()))
+						# file_on_process.text(" | ".join([h, str(file_no), str(n), kind, year, fix_name(file[:-4])]))
+						file_on_process.text(" | ".join([h, 'Extrayendo los n-gramas más frecuentes', str(n), kind, year]))
 
-				file_no+=1
+						if fix_name(file[:-4]) not in matrix:
+							matrix[fix_name(file[:-4])] = {}
+							matrix[fix_name(file[:-4])]['year'] = year
 
+						if os.path.exists(os.path.join(tokens_stream_folder, year, file)):
+							asd = [ts[kind] for ts in read_json(os.path.join(tokens_stream_folder, year, file))]
+						else:
+							asd = []
+							for x in read_json(os.path.join(spacy_folder, year, file)):
+								asd += [tok[kind] for tok in x['tokens']]
+						matrix[fix_name(file[:-4])][kind] = asd
+						ts_year += matrix[fix_name(file[:-4])][kind] 
 
-	file_on_process1.text("Actualizados los n-gramas de cada archivo.")
+					ts_corpus += ts_year
+				ll = nltk.FreqDist(ngrams(ts_corpus, n)).most_common(k)
+				n_grams["|".join([str(n), str(k), kind])] = ll
+		
+		file_on_process.text("Guardando n-gramas")
+		top = {}
+		for key in n_grams:
+			for x, y in n_grams[key]:
+				top["|".join(x)] = y 
+			# print([(x,y) for x, y in n_grams[key]])
+		n_df = pd.DataFrame(top, index=[0])
+		file_on_process.text("Extraídos con éxito los n-gramas más frecuentes.")
+
+		file_on_process1= st.text("Actualizando df")
+		file_no = 1
+		total_iters = len(matrix) * len(features["n"]) * len(n_grams_kind)
+		my_bar1 = st.progress(0)
+
+		for title in matrix:
+			h = str(time.strftime("%Y-%m-%d %I:%M:%S", time.localtime()))	
+			file_on_process1.text(" ".join(["Actualizando n-gramas de",title]))
+			# try:
+			# 	df.loc[title, "year"]=int(matrix[title]['year'])
+			# except Exception as e:
+			df.loc[title, "year"]=matrix[title]['year']
+			for n in features["n"]:
+				for kind in n_grams_kind:
+					ln = ngrams(matrix[title][kind], n)
+					fd = nltk.FreqDist(["|".join(x) for x in list(ln)])
+
+					columns = []
+					i = "|".join([str(n), str(k), kind])
+					for n_gr, freq in n_grams[i]:
+						columns.append("|".join(n_gr))
+
+					for col in columns:
+						if col in fd:
+							# df.loc[title, col] = fd[col] * 100 / len(matrix[title][kind])
+							df.loc[title, col] = fd[col] * 100 / 100000
+							# df.loc[title, col] = fd[col]
+						else:
+							df.loc[title, col] = 0 
+							#This means that the n_gram 
+							#(que esta entre los top k) 
+							#no se encuentra en title
+							# log(title + ' ' + col)
+					my_bar1.progress(int(file_no/(total_iters)*100))
+
+					file_no+=1
+		file_on_process1.text("Actualizados los n-gramas de cada archivo.")
+		save(n_df, "top_n_gramas")
+		save(df, "n_grams")
+
 	return n_df, df
 
 #################################################################
@@ -822,6 +768,7 @@ def run_extract_features():
 def run_plot_pca():
 	"""Extraer Componentes Principales"""
 	df = get_df()
+	st.write(df)
 	pca, expl_var = plot_pca(df, 
 							plot=st.sidebar.checkbox("Graficar CP"), 
 							plot_var=st.sidebar.checkbox("Graficar varianzas CP"), 
@@ -868,16 +815,16 @@ def run_dendrogram():
 	# 			# log(Z)
 	# 		else:
 	# 			loc = full_dendrogram(df)
-	df 		= rdf("df")
+	# df 		= rdf("df")
 	n_grams = rdf("n_grams" )
-	full_df = rdf("full_df")
-	cols = []
-	cols += [col for col in df.columns]
-	cols += [col for col in n_grams.columns]
+	# full_df = rdf("full_df")
+	# cols = []
+	# cols += [col for col in df.columns]
+	# cols += [col for col in n_grams.columns]
 
-	d_m, l_o, v_d = dend(	 df.loc[:,[col for col in		 df.columns if col!='year']], "Estilemas")
+	# d_m, l_o, v_d = dend(	 df.loc[:,[col for col in		 df.columns if col!='year']], "Estilemas")
 	d_m, l_o, v_d = dend(n_grams.loc[:,[col for col in	n_grams.columns if col!='year']], "N-gramas")
-	d_m, l_o, v_d = dend(full_df.loc[:,[col for col in	list(set(cols)) if col!='year']], "Estilemas y n-gramas")
+	# d_m, l_o, v_d = dend(full_df.loc[:,[col for col in	list(set(cols)) if col!='year']], "Estilemas y n-gramas")
 	
 def run_extract_n_grams():
 	"""Extraer los n-gramas"""
@@ -1058,6 +1005,9 @@ def run_plot_features():
 
 def run_all():
 	"""Ejecute todos los pasos para el corpus"""
+	all()
+@chrono	
+def all():
 	# draw_opts()
 	corpus 			=	st.sidebar.checkbox("Corpus entero")
 	if not corpus:
@@ -1078,10 +1028,11 @@ def run_all():
 
 
 	xtract_features =	st.sidebar.checkbox("Extraer estilemas", True)
+	plot_features 	=	st.sidebar.checkbox("Graficar estilemas", True)
 	extract_n_grams =	st.sidebar.checkbox("Extraer n-gramas", True)
 	corr_matrix 	=	st.sidebar.checkbox("Mostrar matriz de correlaciones", True)
 	plot_arrays 	=	st.sidebar.checkbox("Graficar longitud de palabras, oraciones y frecuencia de puntuación", True)
-	pca_chbx 		=	st.sidebar.checkbox("Analisis de Componentes Principales", True)
+	pca_chbx 		=	st.sidebar.checkbox("Análisis de Componentes Principales", True)
 	if pca_chbx:
 		plot_var	=	st.sidebar.checkbox("Graficar varianzas CP", True)
 		plot 		=	st.sidebar.checkbox("Graficar CP", True)
@@ -1090,6 +1041,7 @@ def run_all():
 	if st.sidebar.button("Empezar"):
 		# run_pos_tagging(df)
 		if pos_chbx:
+			st.markdown("## Etiquetado POS")
 			pos_tagging(
 						freeling=tag_lib=="freeling", 
 						spcy=tag_lib=="spacy",
@@ -1098,6 +1050,7 @@ def run_all():
 		
 		# run_extract_features(df)
 		if xtract_features:
+			st.markdown("## Extracción de estilemas")
 			df 			= extract_features(years, tag_lib)# stylemas
 			df 			= df.set_index('title')
 			if corpus and groupbyyear:
@@ -1115,17 +1068,31 @@ def run_all():
 					df = df.groupby('year').mean()
 
 		log_df(df, "df")
+		T = df.mean().T
+		del T["year"]
+		log_df(T, "df_mean")
+
+		if plot_features:
+			st.markdown("## Gráficos de estilemas")
+			cols = [col for col in df.columns if col not in ["title","year"] ]
+			ax = df[cols].plot(subplots=True) # esto devuelve un array
+			st.pyplot()
 
 		if corr_matrix:
+			st.markdown("## Gráfico de correlación de estilemas")
 			plot_corr_matrix(df,"estilemas")
 
 		if extract_n_grams:
+			st.markdown("## Extracción de n-gramas")
 			n_df, n_grams	= xtract_n_grmas(pd.DataFrame(), years)
 
 			if groupbyyear:
 				n_grams = n_grams.groupby('year').mean()
 
 			log_df(n_grams, "n_grams")
+			T1 =n_grams.mean().T
+			del T1["year"]
+			log_df(T1, "n_grams_mean")
 
 			full_df = pd.merge(df, n_grams, how='inner', left_index=True, right_index=True)
 
@@ -1141,6 +1108,7 @@ def run_all():
 		
 		# run_plot_pca(df)
 		if pca_chbx:
+			st.markdown("## Análisis de Componentes Principales")
 			pca, expl_var 			= plot_pca(df, 
 										plot 	 =plot, 
 										plot_var =plot_var, 
@@ -1164,24 +1132,27 @@ def run_all():
 			
 		# run_plot_array_features(df)
 		if plot_arrays:
+			st.markdown("## Listas de estilemas")
 			plot_array_features(years=years, corpus=corpus)
 
 		# run_dendrogram(df)
 		if rdendrogram:
+			st.markdown("## Dendrograma")
 			cols = []
 			cols += [col for col in df.columns]
 			cols += [col for col in n_grams.columns]
 
-			delta_matrix = dend(	 df.loc[:,[col for col in		 df.columns if col!='year']], "Estilemas")
-			delta_matrix = dend(n_grams.loc[:,[col for col in	n_grams.columns if col!='year']], "N-gramas")
-			delta_matrix = dend(full_df.loc[:,[col for col in	list(set(cols)) if col!='year']], "Estilemas y n-gramas")
+			# delta_matrix = dend(	 df.loc[:,[col for col in		 df.columns if col!='year']], "Estilemas")
+			delta_matrix, l_o, v_d = dend(n_grams.loc[:,[col for col in	n_grams.columns if col!='year']], "N-gramas")
+			# delta_matrix = dend(full_df.loc[:,[col for col in	list(set(cols)) if col!='year']], "Estilemas y n-gramas")
 			
 			# log_df(delta_matrix, "delta_matrix")
 	
-		if st.sidebar.button("Guardar"):
-			save(df, "df")
-			save(n_grams, "n_grams")
-			save(full_df, "full_df")
+		# if st.sidebar.button("Guardar"):
+		save(df, "df")
+		save(n_grams, "n_grams")
+		save(full_df, "full_df")
+		save(delta_matrix, "delta_matrix")
 
 #################################################################
 
@@ -1288,6 +1259,7 @@ def sidebar():
 				l = opts[option]()		
 			except Exception as e:
 				st.error(e)
+				raise e
 	if do=="Leer":
 		if total_files==0:
 			st.error("No hay archivos en la carpeta data/corpus")

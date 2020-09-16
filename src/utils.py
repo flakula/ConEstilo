@@ -135,8 +135,10 @@ features_file = 'data/opt_features.json'
 
 if not os.path.exists("data/"):
 	os.makedirs("data/corpus")
+if not os.path.exists(preprocess_file):
 	with open(preprocess_file, 'w', encoding='utf-8') as f:
-		json.dump({"lower": True, "agrupar": False, "eliminar": False, "tag_lib": "freeling", "lemmatizacion": False, "pos": True}, f)
+		json.dump({"lower": True, "agrupar": False, "eliminar": False, "tag_lib": "spacy", "lemmatizacion": False, "pos": True}, f)
+if not os.path.exists(features_file):
 	with open(features_file, 'w', encoding='utf-8') as f:
 		json.dump({"d": {"wl": ["mean"], "sl": ["mean", "std"], "pf": ["mean"]}, "n_grams": ["char", "word", "POS"], "n": [1, 2, 3], "k": 30}, f)
 
@@ -148,6 +150,12 @@ tokens_stream_folder = "data/tokens_stream_folder/"
 n_grams_folder = "data/n_grams/"
 cuestioned_index = "Sentido de Navidad"
 
-nlp = spacy.load('es')
+# def return_pipeline(nlp):
+# 	return [nlp.tagger, nlp.parser] 
+
+# custom_nlp = spacy.load('es', create_pipeline=return_pipeline)
+
+# nlp = spacy.load('es')
+nlp = spacy.load('es', disable= ['DependencyParser', 'EntityRecognizer', 'TextCategorizer','Matcher','PraseMatcher','ner'])
 
 # df = get_df()# TODO load() method, cache etc
